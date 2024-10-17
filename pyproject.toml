@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "distribution_generation"
+name = "distribution_generator"
 version = "0.0.1"
 authors = [
   { name="Alberto Foresti", email="alberto.foresti@eurecom.fr" },
@@ -50,7 +50,7 @@ exclude = '''
 profile = "black"
 
 [tool.hatch.build.targets.wheel]
-packages = ["distribution_generation"]
+packages = ["distribution_generator"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
