@@ -19,13 +19,14 @@ class DistributionManager:
                  strategy='comma',
                  mu=25,
                  population_size=50,
+                 n_generations=100,
                  force_retrain=False) -> None:
 
         if not force_retrain and self.distribution_config is not None and self.distribution_config == DistributionConfig(target_mutinfo, dim_x, dim_y):
             return self.distribution
         self.distribution_config = DistributionConfig(target_mutinfo, dim_x, dim_y)
         self.evolution_task = EvolutionTask(target_mutinfo, dim_x, dim_y, scale, loc, mean, cov, strategy, mu, population_size)
-        self.evolution_task.train()
+        self.evolution_task.train(n_generations)
         self.distribution = self.evolution_task.best_agent.distribution
         return self.distribution
 
@@ -67,6 +68,7 @@ def get_rv(target_mutinfo: float,
                      strategy='comma',
                      mu=25,
                      population_size=50,
+                     n_generations=100,
                      force_retrain=False) -> None:
     assert target_mutinfo <= min(np.log(dim_x), np.log(dim_y)), f"Mutual information is too high for the given dimensions, max is {min(np.log(dim_x), np.log(dim_y))} nats"
     assert target_mutinfo >= 0, "Mutual information must be non-negative"
@@ -80,6 +82,7 @@ def get_rv(target_mutinfo: float,
                                 strategy,
                                 mu,
                                 population_size,
+                                n_generations,
                                 force_retrain)
     custom_rv = JointDiscrete(dist)
     return custom_rv
