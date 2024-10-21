@@ -20,24 +20,26 @@ class DistributionManager:
                  mu=25,
                  population_size=50,
                  n_generations=100,
+                 min_val=0,
                  force_retrain=False) -> None:
 
-        if not force_retrain and self.distribution_config is not None and self.distribution_config == DistributionConfig(target_mutinfo, dim_x, dim_y):
+        if not force_retrain and self.distribution_config is not None and self.distribution_config == DistributionConfig(target_mutinfo, dim_x, dim_y, min_val):
             return self.distribution
-        self.distribution_config = DistributionConfig(target_mutinfo, dim_x, dim_y)
-        self.evolution_task = EvolutionTask(target_mutinfo, dim_x, dim_y, scale, loc, mean, cov, strategy, mu, population_size)
+        self.distribution_config = DistributionConfig(target_mutinfo, dim_x, dim_y, min_val)
+        self.evolution_task = EvolutionTask(target_mutinfo, dim_x, dim_y, scale, loc, mean, cov, strategy, mu, population_size, min_val)
         self.evolution_task.train(n_generations)
         self.distribution = self.evolution_task.best_agent.distribution
         return self.distribution
 
 class DistributionConfig:
-    def __init__(self, target_mutinfo: float, dim_x: int, dim_y: int):
+    def __init__(self, target_mutinfo: float, dim_x: int, dim_y: int, min_val: float):
         self.target_mutinfo = target_mutinfo
         self.dim_x = dim_x
         self.dim_y = dim_y
+        self.min_val = min_val
     
     def __eq__(self, value: object) -> bool:
-        return self.target_mutinfo == value.target_mutinfo and self.dim_x == value.dim_x and self.dim_y == value.dim_y
+        return self.target_mutinfo == value.target_mutinfo and self.dim_x == value.dim_x and self.dim_y == value.dim_y and self.min_val == value.min_val
 
 class JointDiscrete(multi_rv_frozen):
 
@@ -69,6 +71,7 @@ def get_rv(target_mutinfo: float,
                      mu=25,
                      population_size=50,
                      n_generations=100,
+                     min_val=0,
                      force_retrain=False) -> None:
     assert target_mutinfo <= min(np.log(dim_x), np.log(dim_y)), f"Mutual information is too high for the given dimensions, max is {min(np.log(dim_x), np.log(dim_y))} nats"
     assert target_mutinfo >= 0, "Mutual information must be non-negative"
@@ -83,6 +86,7 @@ def get_rv(target_mutinfo: float,
                                 mu,
                                 population_size,
                                 n_generations,
+                                min_val,
                                 force_retrain)
     custom_rv = JointDiscrete(dist)
     return custom_rv

@@ -9,7 +9,7 @@ import scipy
 
 class Agent:
 
-    def __init__(self, dim_x: int, dim_y: int, params: Optional[np.array] = None) -> None:
+    def __init__(self, dim_x: int, dim_y: int, params: Optional[np.array] = None, min_val=0) -> None:
         """
         num_rows: number of rows of the game
         params: initial parameters
@@ -21,14 +21,20 @@ class Agent:
         else:
             self._params = params
         self._fitness: float = -np.inf
+        self.min_val = min_val
     
     def __lt__(self, other: 'Agent'):
         return self.fitness < other.fitness
     
     @property
     def distribution(self):
-        dist = self.params - np.min(self.params) + 1e-3
+        dist = self.params - np.min(self.params)
         dist = dist/np.sum(dist)
+        dist = dist * (1 - self.min_val) + self.min_val
+        dist = dist/np.sum(dist)
+
+        # print(np.sum(dist))
+
         """dist = np.exp(self.params)
         dist /= np.sum(dist)"""
         if np.any(dist < 0):
@@ -120,7 +126,7 @@ class EvolutionTask:
     Evolutionary task to optimize the mutual information of a given distribution
     """
 
-    def __init__(self, target_mutinfo: float, dim_x: int, dim_y: int, scale: float = 1.0, loc: float = 0.0, mean: np.array = None, cov: np.array = None, strategy='comma', mu=25, population_size=50) -> None:
+    def __init__(self, target_mutinfo: float, dim_x: int, dim_y: int, scale: float = 1.0, loc: float = 0.0, mean: np.array = None, cov: np.array = None, strategy='comma', mu=25, population_size=50, min_val=0) -> None:
         self.scale = scale
         self.loc = loc
         self.mu = mu
@@ -131,6 +137,7 @@ class EvolutionTask:
         self.dim_y = dim_y
         self.mean = mean
         self.cov = cov
+        self.min_val = min_val
     
     def mutate(self, agent: Agent) -> None:
         """
@@ -193,7 +200,7 @@ class EvolutionTask:
                 new_params.append(a1.params[i])
             else:
                 new_params.append(a2.params[i])
-        return Agent(self.dim_x, self.dim_y, np.array(new_params))
+        return Agent(self.dim_x, self.dim_y, np.array(new_params), min_val=self.min_val)
 
     def compute_fitness(self) -> None:
         for agent in self.agents:
@@ -226,7 +233,7 @@ class EvolutionTask:
         Training loop, the temperature defines the transition from an exploration prevalent strategy to an exploitation prevalent strategy.
         In particular exploitation is performed with probability P[X>(generation/tot_generations)^t], while exploitation is performed with P[X<(generation/tot_generations)^t], where X is uniformly distributed between 0 and 1
         """
-        self.agents: List[Agent] = [Agent(self.dim_x, self.dim_y) for _ in range(self.population_size)]
+        self.agents: List[Agent] = [Agent(self.dim_x, self.dim_y, min_val=self.min_val) for _ in range(self.population_size)]
         self.best_agent = None
         pbar = tqdm(range(n_generations))
         self.compute_fitness()
