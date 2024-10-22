@@ -59,7 +59,9 @@ class JointDiscrete(multi_rv_frozen):
         samples = self._hidden_univariate.rvs(*args, **kwargs)
         samples = np.unravel_index(samples, self.joint_dist.shape)
         samples = np.stack(samples, axis=1)
-        return samples[:,0], samples[:,1] # return X,Y
+        X = samples[:,0].reshape(-1,1)
+        Y = samples[:,1].reshape(-1,1)
+        return X, Y
 
 distribution_manager = DistributionManager()
 
