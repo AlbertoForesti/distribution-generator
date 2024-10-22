@@ -150,7 +150,7 @@ class EvolutionTask:
         new_agent.params += np.random.normal(size = agent.params.shape, loc=self.loc, scale=self.scale)
         return new_agent
 
-    def calculate_calculate_mutual_information(self, pxy: np.array) -> float:
+    def calculate_mutual_information(self, pxy: np.array) -> float:
         """
         Calculates the mutual information of a given distribution
         """
