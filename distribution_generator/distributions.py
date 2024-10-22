@@ -9,7 +9,7 @@ class DistributionManager:
         self.distribution = None
 
     def __call__(self, 
-                 target_mutinfo: float,
+                 mutual_information: float,
                  dim_x: int,
                  dim_y: int,
                  scale: float = 1.0,
@@ -23,23 +23,23 @@ class DistributionManager:
                  min_val=0,
                  force_retrain=False) -> None:
 
-        if not force_retrain and self.distribution_config is not None and self.distribution_config == DistributionConfig(target_mutinfo, dim_x, dim_y, min_val):
+        if not force_retrain and self.distribution_config is not None and self.distribution_config == DistributionConfig(mutual_information, dim_x, dim_y, min_val):
             return self.distribution
-        self.distribution_config = DistributionConfig(target_mutinfo, dim_x, dim_y, min_val)
-        self.evolution_task = EvolutionTask(target_mutinfo, dim_x, dim_y, scale, loc, mean, cov, strategy, mu, population_size, min_val)
+        self.distribution_config = DistributionConfig(mutual_information, dim_x, dim_y, min_val)
+        self.evolution_task = EvolutionTask(mutual_information, dim_x, dim_y, scale, loc, mean, cov, strategy, mu, population_size, min_val)
         self.evolution_task.train(n_generations)
         self.distribution = self.evolution_task.best_agent.distribution
         return self.distribution
 
 class DistributionConfig:
-    def __init__(self, target_mutinfo: float, dim_x: int, dim_y: int, min_val: float):
-        self.target_mutinfo = target_mutinfo
+    def __init__(self, mutual_information: float, dim_x: int, dim_y: int, min_val: float):
+        self.mutual_information = mutual_information
         self.dim_x = dim_x
         self.dim_y = dim_y
         self.min_val = min_val
     
     def __eq__(self, value: object) -> bool:
-        return self.target_mutinfo == value.target_mutinfo and self.dim_x == value.dim_x and self.dim_y == value.dim_y and self.min_val == value.min_val
+        return self.mutual_information == value.mutual_information and self.dim_x == value.dim_x and self.dim_y == value.dim_y and self.min_val == value.min_val
 
 class JointDiscrete(multi_rv_frozen):
 
@@ -60,7 +60,7 @@ class JointDiscrete(multi_rv_frozen):
 
 distribution_manager = DistributionManager()
 
-def get_rv(target_mutinfo: float,
+def get_rv(mutual_information: float,
                      dim_x: int,
                      dim_y: int,
                      scale: float = 1.0,
@@ -73,9 +73,9 @@ def get_rv(target_mutinfo: float,
                      n_generations=100,
                      min_val=0,
                      force_retrain=False) -> None:
-    assert target_mutinfo <= min(np.log(dim_x), np.log(dim_y)), f"Mutual information is too high for the given dimensions, max is {min(np.log(dim_x), np.log(dim_y))} nats"
-    assert target_mutinfo >= 0, "Mutual information must be non-negative"
-    dist = distribution_manager(target_mutinfo,
+    assert mutual_information <= min(np.log(dim_x), np.log(dim_y)), f"Mutual information is too high for the given dimensions, max is {min(np.log(dim_x), np.log(dim_y))} nats"
+    assert mutual_information >= 0, "Mutual information must be non-negative"
+    dist = distribution_manager(mutual_information,
                                 dim_x,
                                 dim_y,
                                 scale,

@@ -126,13 +126,13 @@ class EvolutionTask:
     Evolutionary task to optimize the mutual information of a given distribution
     """
 
-    def __init__(self, target_mutinfo: float, dim_x: int, dim_y: int, scale: float = 1.0, loc: float = 0.0, mean: np.array = None, cov: np.array = None, strategy='comma', mu=25, population_size=50, min_val=0) -> None:
+    def __init__(self, mutual_information: float, dim_x: int, dim_y: int, scale: float = 1.0, loc: float = 0.0, mean: np.array = None, cov: np.array = None, strategy='comma', mu=25, population_size=50, min_val=0) -> None:
         self.scale = scale
         self.loc = loc
         self.mu = mu
         self.strategy = strategy
         self.population_size = population_size
-        self.target_mutinfo = target_mutinfo
+        self.mutual_information = mutual_information
         self.dim_x = dim_x
         self.dim_y = dim_y
         self.mean = mean
@@ -165,7 +165,7 @@ class EvolutionTask:
         if m_info == np.nan:
             print("Mutinfo is nan", m_info)
             return -np.inf
-        return -np.abs(m_info-self.target_mutinfo)
+        return -np.abs(m_info-self.mutual_information)
     
     def exploration(self) -> None:
         """
