@@ -51,8 +51,11 @@ class JointDiscrete(multi_rv_frozen):
         super().__init__(*args, **kwargs)
     
     def rvs(self, *args, **kwargs):
-        if len(args) > 0:
+        if len(args) > 1:
             raise NotImplementedError("Different sizes not implemented, pass keyworkd argument size instead")
+        elif len(args) == 1:
+            kwargs['size'] = args[0]
+            args = []
         samples = self._hidden_univariate.rvs(*args, **kwargs)
         samples = np.unravel_index(samples, self.joint_dist.shape)
         samples = np.stack(samples, axis=1)
