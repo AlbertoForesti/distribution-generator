@@ -150,7 +150,7 @@ class EvolutionTask:
         new_agent.params += np.random.normal(size = agent.params.shape, loc=self.loc, scale=self.scale)
         return new_agent
 
-    def mutual_information(self, pxy: np.array) -> float:
+    def calculate_calculate_mutual_information(self, pxy: np.array) -> float:
         """
         Calculates the mutual information of a given distribution
         """
@@ -161,7 +161,7 @@ class EvolutionTask:
         return np.sum(pxy*np.log(pxy/(px[:,None]*py[None,:])))
 
     def fitness(self, agent: Agent) -> float:
-        m_info = self.mutual_information(agent.distribution)
+        m_info = self.calculate_mutual_information(agent.distribution)
         if m_info == np.nan:
             print("Mutinfo is nan", m_info)
             return -np.inf
