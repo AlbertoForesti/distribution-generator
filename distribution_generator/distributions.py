@@ -62,6 +62,10 @@ class JointDiscrete(multi_rv_frozen):
         X = samples[:,0].reshape(-1,1)
         Y = samples[:,1].reshape(-1,1)
         return X, Y
+    
+    @property
+    def pmf(self):
+        return self._hidden_univariate.pmf(np.arange(len(self.joint_dist.flatten()))).reshape(2,-1, 1)
 
 distribution_manager = DistributionManager()
 
