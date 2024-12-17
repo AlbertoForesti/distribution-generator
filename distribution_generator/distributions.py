@@ -122,8 +122,8 @@ class JointDiscrete(multi_rv_frozen):
             dim_x = np.max(self.vocab_x)
             dim_y = np.max(self.vocab_y)
             
-            X_noise = np.random.randint(low=0, max=dim_x, size=(X.shape[0], self.noise_dimensions))
-            Y_noise = np.random.randint(low=0, max=dim_y, size=(Y.shape[0], self.noise_dimensions))
+            X_noise = np.random.randint(low=0, high=dim_x, size=(X.shape[0], self.noise_dimensions))
+            Y_noise = np.random.randint(low=0, high=dim_y, size=(Y.shape[0], self.noise_dimensions))
 
             X = np.concatenate((X, X_noise), dim=1)
             Y = np.concatenate((Y, Y_noise), dim=1)
