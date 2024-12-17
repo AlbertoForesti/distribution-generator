@@ -25,13 +25,14 @@ class DistributionManager:
                  population_size=50,
                  n_generations=100,
                  min_val=0,
+                 noise_dimensions=0,
                  force_retrain=False) -> None:
 
         if not force_retrain and self.distribution_config is not None and self.distribution_config == DistributionConfig(mutual_information, dim_x, dim_y, seq_length_x, seq_length_y, min_val):
             return self.rv
         self.distribution_config = DistributionConfig(mutual_information, dim_x, dim_y, seq_length_x, seq_length_y, min_val)
         self.train_tasks(scale, loc, mean, cov, strategy, mu, population_size, min_val, n_generations)
-        self.rv = JointDiscrete(self.distribution, vocabulary_x=self.possible_x_sequences, vocabulary_y=self.possible_y_sequences)
+        self.rv = JointDiscrete(self.distribution, vocabulary_x=self.possible_x_sequences, vocabulary_y=self.possible_y_sequences, noise_dimensions=noise_dimensions)
         return self.rv
 
     def train_tasks(self, scale, loc, mean, cov, strategy, mu, population_size, min_val, n_generations):
@@ -89,10 +90,11 @@ class DistributionConfig:
 
 class JointDiscrete(multi_rv_frozen):
 
-    def __init__(self, joint_dist, *args, vocabulary_x=None, vocabulary_y=None, **kwargs):
+    def __init__(self, joint_dist, *args, vocabulary_x=None, vocabulary_y=None, noise_dimensions=0, **kwargs):
         self.joint_dist = joint_dist
         self.vocab_x = vocabulary_x
         self.vocab_y = vocabulary_y
+        self.noise_dimensions = noise_dimensions
         pmf = joint_dist.flatten()
         values = np.arange(len(pmf))
         self._hidden_univariate = rv_discrete(name="hidden_univariate", values=(values, pmf))
@@ -115,6 +117,16 @@ class JointDiscrete(multi_rv_frozen):
         Y = samples[:,1].reshape(-1,1)
         if self.vocab_y is not None:
             Y = self.vocab_y[Y]
+        
+        if self.noise_dimensions > 0:
+            dim_x = np.max(self.vocab_x)
+            dim_y = np.max(self.vocab_y)
+            
+            X_noise = np.random.rand(dim_x, shape=(X.shape[0], self.noise_dimensions))
+            Y_noise = np.random.rand(dim_y, shape=(Y.shape[0], self.noise_dimensions))
+
+            X = np.concatenate((X, X_noise), dim=1)
+            Y = np.concatenate((Y, Y_noise), dim=1)
         
         return X, Y
     
@@ -139,12 +151,13 @@ def get_rv(mutual_information: float,
                      loc: float = 0.0,
                      mean: np.array = None,
                      cov: np.array = None,
-                     strategy='comma',
-                     mu=25,
-                     population_size=50,
-                     n_generations=100,
-                     min_val=0,
-                     force_retrain=False) -> None:
+                     strategy: str ='comma',
+                     mu: int = 25,
+                     population_size: int = 50,
+                     n_generations: int = 100,
+                     min_val: float = 0,
+                     noise_dimensions: int = 0,
+                     force_retrain: bool = False) -> None:
     assert mutual_information <= min(np.log(dim_x**seq_length_x), np.log(dim_y**seq_length_y)), f"Mutual information is too high for the given dimensions, max is {min(np.log(dim_x**seq_length_x), np.log(dim_y**seq_length_y))} nats"
     assert mutual_information >= 0, "Mutual information must be non-negative"
     custom_rv = distribution_manager(mutual_information,
@@ -161,5 +174,6 @@ def get_rv(mutual_information: float,
                                 population_size,
                                 n_generations,
                                 min_val,
+                                noise_dimensions,
                                 force_retrain)
     return custom_rv
