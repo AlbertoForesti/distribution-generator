@@ -2,6 +2,8 @@ from distribution_generator.evolution_lib import *
 from scipy.stats import rv_discrete
 from scipy.stats._multivariate import multi_rv_frozen
 
+from dataclasses import dataclass
+
 import itertools
 
 class DistributionManager:
@@ -26,13 +28,22 @@ class DistributionManager:
                  n_generations=100,
                  min_val=0,
                  noise_dimensions=0,
-                 force_retrain=False) -> None:
+                 force_retrain=False,
+                 xy_map=None,
+                 noise_rv_x=None,
+                 noise_rv_y=None,
+                 fast=True) -> None:
 
+        self.fast = fast
         if not force_retrain and self.distribution_config is not None and self.distribution_config == DistributionConfig(mutual_information, dim_x, dim_y, seq_length_x, seq_length_y, min_val):
             return self.rv
-        self.distribution_config = DistributionConfig(mutual_information, dim_x, dim_y, seq_length_x, seq_length_y, min_val)
+        self.distribution_config = DistributionConfig(mutual_information, dim_x, dim_y, seq_length_x, seq_length_y, min_val, xy_map, noise_rv_x, noise_rv_y, fast)
         self.train_tasks(scale, loc, mean, cov, strategy, mu, population_size, min_val, n_generations)
-        self.rv = JointDiscrete(self.distribution, vocabulary_x=self.possible_x_sequences, vocabulary_y=self.possible_y_sequences, noise_dimensions=noise_dimensions)
+        if not fast:
+            self.rv = JointDiscrete(self.distribution, vocabulary_x=self.possible_x_sequences, vocabulary_y=self.possible_y_sequences, noise_dimensions=noise_dimensions)
+        else:
+            self.rv = FastJointDiscrete(self.distributions, noise_dimensions=noise_dimensions, xy_map=xy_map, noise_rv_x=noise_rv_x, noise_rv_y=noise_rv_y)
+
         return self.rv
 
     def train_tasks(self, scale, loc, mean, cov, strategy, mu, population_size, min_val, n_generations):
@@ -58,35 +69,101 @@ class DistributionManager:
             task.train(n_generations)
             self.distributions.append(task.best_agent.distribution)
         
-        dist = np.zeros((dim_x**seq_length_x, dim_y**seq_length_y))
-
-        self.possible_x_sequences = np.array(list(itertools.product(range(dim_x), repeat=relevant_dims)))
-        self.possible_y_sequences = np.array(list(itertools.product(range(dim_y), repeat=relevant_dims)))
+        if not self.fast:
         
-        for idx_x, x in enumerate(self.possible_x_sequences):
-            for idx_y, y in enumerate(self.possible_y_sequences):
-                joint_prob = 1
-                for i in range(relevant_dims):
-                    joint_prob *= self.distributions[i][x[i], y[i]]
-                dist[idx_x, idx_y] = joint_prob
-        self.distribution = dist
+            dist = np.zeros((dim_x**seq_length_x, dim_y**seq_length_y))
 
+            self.possible_x_sequences = np.array(list(itertools.product(range(dim_x), repeat=relevant_dims)))
+            self.possible_y_sequences = np.array(list(itertools.product(range(dim_y), repeat=relevant_dims)))
+            
+            for idx_x, x in enumerate(self.possible_x_sequences):
+                for idx_y, y in enumerate(self.possible_y_sequences):
+                    joint_prob = 1
+                    for i in range(relevant_dims):
+                        joint_prob *= self.distributions[i][x[i], y[i]]
+                    dist[idx_x, idx_y] = joint_prob
+            self.distribution = dist
+
+@dataclass
 class DistributionConfig:
-    def __init__(self, mutual_information: float, dim_x: int, dim_y: int, seq_length_x: int, seq_length_y: int, min_val: float):
-        self.mutual_information = mutual_information
-        self.dim_x = dim_x
-        self.dim_y = dim_y
-        self.min_val = min_val
-        self.seq_length_x = seq_length_x
-        self.seq_length_y = seq_length_y
+    mutual_information: float
+    dim_x: int
+    dim_y: int
+    seq_length_x: int
+    seq_length_y: int
+    min_val: float
+    xy_map: callable = None
+    noise_rv_x: callable = None
+    noise_rv_y: callable = None
+    fast: bool = True
+
+class FastJointDiscrete(multi_rv_frozen):
     
-    def __eq__(self, value: object) -> bool:
-        return self.mutual_information == value.mutual_information and\
-               self.dim_x == value.dim_x and\
-               self.dim_y == value.dim_y and\
-               self.min_val == value.min_val and\
-               self.seq_length_x == value.seq_length_x and\
-               self.seq_length_y == value.seq_length_y
+    def __init__(self, distributions, *args, noise_dimensions=0, xy_map=None, noise_rv_x=None, noise_rv_y=None, **kwargs):
+        self.distributions = distributions
+        self.noise_dimensions = noise_dimensions
+        self.xy_map = xy_map
+        self.noise_rv_x = noise_rv_x
+        self.noise_rv_y = noise_rv_y
+        self._hidden_values = [np.arange(len(d.flatten())) for d in distributions]
+        self._hidden_univariates = [rv_discrete(name=f"hidden_univariate_{i}", values=(self._hidden_values[i], self.distributions[i].flatten())) for i in range(len(distributions))]
+    
+    def cantor_map(self, x, y):
+        res = (x + y)*(x + y + 1)/2 + y
+        res = np.array(res, dtype=int)
+        return res
+    
+    def rvs(self, *args, **kwargs):
+        if len(args) > 1:
+            raise NotImplementedError("Different sizes not implemented, pass keyworkd argument size instead")
+        elif len(args) == 1:
+            kwargs['size'] = args[0]
+            args = []
+        samples = [h_rv.rvs(*args, **kwargs) for h_rv in self._hidden_univariates]
+        samples = [np.unravel_index(s, d.shape) for s, d in zip(samples, self.distributions)]
+        samples = [np.stack(s, axis=1) for s in samples]
+        X = [s[:,0].reshape(-1,1) for s in samples]
+        X = np.concatenate(X, axis=1)
+        Y = [s[:,1].reshape(-1,1) for s in samples]
+        Y = np.concatenate(Y, axis=1)
+
+        if self.noise_rv_x is not None: # This increases the size of the alphabet
+            X_noise = self.noise_rv_x.rvs(size=X.shape)
+            X_noise = X_noise - np.min(X_noise)
+            X = X - np.min(X)
+
+            X = self.cantor_map(X, X_noise)
+        
+        if self.noise_rv_y is not None: # This increases the size of the alphabet
+            Y_noise = self.noise_rv_y.rvs(size=Y.shape)
+            Y_noise = Y_noise - np.min(Y_noise)
+            Y = Y - np.min(Y)
+
+            Y = self.cantor_map(Y, Y_noise)
+
+        if self.xy_map is not None: # This increases the length of the sequence
+            X = X.reshape(*X.shape, 1)
+            X = np.apply_along_axis(self.xy_map, -1, X)
+            X = X.reshape(X.shape[0], -1)
+
+            Y = Y.reshape(*Y.shape, 1)
+            Y = np.apply_along_axis(self.xy_map, -1, Y)
+            Y = Y.reshape(Y.shape[0], -1)
+
+        return X, Y
+    
+    @property
+    def entropy(self):
+        return -np.sum([d.flatten() * np.log(d.flatten()) for d in self.distributions])
+    
+    @property
+    def mutual_information(self):
+        return np.sum([self._mutual_information(d) for d in self.distributions])
+
+    def _mutual_information(self, joint_dist):
+        marginal_x = np.sum(joint_dist, axis=1)
+        marginal_y = np.sum(joint_dist, axis=0)
+        return np.sum(joint_dist * np.log(joint_dist / np.outer(marginal_x, marginal_y)))
 
 class JointDiscrete(multi_rv_frozen):
 
@@ -157,8 +234,12 @@ def get_rv(mutual_information: float,
                      n_generations: int = 100,
                      min_val: float = 0,
                      noise_dimensions: int = 0,
-                     force_retrain: bool = False) -> None:
-    assert mutual_information <= min(np.log(dim_x**seq_length_x), np.log(dim_y**seq_length_y)), f"Mutual information is too high for the given dimensions, max is {min(np.log(dim_x**seq_length_x), np.log(dim_y**seq_length_y))} nats"
+                     force_retrain: bool = False,
+                     xy_map=None,
+                     noise_rv_x=None,
+                     noise_rv_y=None,
+                     fast: bool = True) -> None:
+    assert mutual_information <= min(seq_length_x*np.log(dim_x), seq_length_y*np.log(dim_y)), f"Mutual information is too high for the given dimensions, max is {min(seq_length_x*np.log(dim_x), seq_length_y*np.log(dim_y))} nats"
     assert mutual_information >= 0, "Mutual information must be non-negative"
     custom_rv = distribution_manager(mutual_information,
                                 dim_x,
@@ -175,5 +256,9 @@ def get_rv(mutual_information: float,
                                 n_generations,
                                 min_val,
                                 noise_dimensions,
-                                force_retrain)
+                                force_retrain,
+                                xy_map,
+                                noise_rv_x,
+                                noise_rv_y,
+                                fast)
     return custom_rv
