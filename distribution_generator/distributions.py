@@ -238,9 +238,11 @@ def get_rv(mutual_information: float,
                      xy_map=None,
                      noise_rv_x=None,
                      noise_rv_y=None,
-                     fast: bool = True) -> None:
+                     fast: bool = True,
+                     seed: int = 42) -> None:
     assert mutual_information <= min(seq_length_x*np.log(dim_x), seq_length_y*np.log(dim_y)), f"Mutual information is too high for the given dimensions, max is {min(seq_length_x*np.log(dim_x), seq_length_y*np.log(dim_y))} nats"
     assert mutual_information >= 0, "Mutual information must be non-negative"
+    np.random.seed(seed)
     custom_rv = distribution_manager(mutual_information,
                                 dim_x,
                                 dim_y,
