@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "distribution_generator"
-version = "2025.01.13a"
+version = "2025.01.13b"
 authors = [
   { name="Alberto Foresti", email="alberto.foresti@eurecom.fr" },
 ]

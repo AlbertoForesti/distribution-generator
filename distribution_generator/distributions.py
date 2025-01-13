@@ -149,6 +149,16 @@ class FastJointDiscrete(multi_rv_frozen):
             Y = Y.reshape(*Y.shape, 1)
             Y = np.apply_along_axis(self.xy_map, -1, Y)
             Y = Y.reshape(Y.shape[0], -1)
+        
+        if self.noise_dimensions > 0:
+            dim_x = np.max(self.vocab_x)
+            dim_y = np.max(self.vocab_y)
+            
+            X_noise = np.random.randint(low=0, high=dim_x, size=(X.shape[0], self.noise_dimensions))
+            Y_noise = np.random.randint(low=0, high=dim_y, size=(Y.shape[0], self.noise_dimensions))
+
+            X = np.concatenate((X, X_noise), axis=1)
+            Y = np.concatenate((Y, Y_noise), axis=1)
 
         return X, Y
     
