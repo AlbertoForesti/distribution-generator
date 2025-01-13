@@ -16,8 +16,8 @@ class DistributionManager:
                  mutual_information: float,
                  dim_x: int,
                  dim_y: int,
-                 seq_length_x: int = 1,
-                 seq_length_y: int = 1,
+                 seq_length_x: int,
+                 seq_length_y: int,
                  scale: float = 1.0,
                  loc: float = 0.0,
                  mean: np.array = None,
@@ -220,10 +220,12 @@ class JointDiscrete(multi_rv_frozen):
 distribution_manager = DistributionManager()
 
 def get_rv(mutual_information: float,
-                     dim_x: int,
-                     dim_y: int,
-                     seq_length_x: int = 1,
-                     seq_length_y: int = 1,
+                     dim: int = None,
+                     dim_x: int = None,
+                     dim_y: int = None,
+                     seq_length_x: int = None,
+                     seq_length_y: int = None,
+                     seq_length: int = None,
                      scale: float = 1.0,
                      loc: float = 0.0,
                      mean: np.array = None,
@@ -240,8 +242,18 @@ def get_rv(mutual_information: float,
                      noise_rv_y=None,
                      fast: bool = True,
                      seed: int = 42) -> None:
+    
+    if dim is not None:
+        assert dim_x == dim_y == dim or (dim_x is None and dim_y is None), "If dim is passed, dim_x and dim_y must be equal to dim or set to None"
+        dim_x = dim_y = dim
+    
+    if seq_length is not None:
+        assert seq_length_x == seq_length_y == seq_length or (seq_length_x is None or seq_length_y is None), "If seq_length is passed, seq_length_x and seq_length_y must be equal to seq_length or set to None"
+        seq_length_x = seq_length_y = seq_length
+    
     assert mutual_information <= min(seq_length_x*np.log(dim_x), seq_length_y*np.log(dim_y)), f"Mutual information is too high for the given dimensions, max is {min(seq_length_x*np.log(dim_x), seq_length_y*np.log(dim_y))} nats"
     assert mutual_information >= 0, "Mutual information must be non-negative"
+
     np.random.seed(seed)
     custom_rv = distribution_manager(mutual_information,
                                 dim_x,
