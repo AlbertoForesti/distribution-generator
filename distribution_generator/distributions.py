@@ -248,6 +248,7 @@ def get_rv(mutual_information: float,
                      noise_dimensions: int = 0,
                      force_retrain: bool = False,
                      xy_map=None,
+                     noise_rv=None,
                      noise_rv_x=None,
                      noise_rv_y=None,
                      fast: bool = True,
@@ -260,6 +261,10 @@ def get_rv(mutual_information: float,
     if seq_length is not None:
         assert seq_length_x == seq_length_y == seq_length or (seq_length_x is None or seq_length_y is None), "If seq_length is passed, seq_length_x and seq_length_y must be equal to seq_length or set to None"
         seq_length_x = seq_length_y = seq_length
+    
+    if noise_rv is not None:
+        assert noise_rv_x is None and noise_rv_y is None, "If noise_rv is passed, noise_rv_x and noise_rv_y must be set to None"
+        noise_rv_x = noise_rv_y = noise_rv
     
     assert mutual_information <= min(seq_length_x*np.log(dim_x), seq_length_y*np.log(dim_y)), f"Mutual information is too high for the given dimensions, max is {min(seq_length_x*np.log(dim_x), seq_length_y*np.log(dim_y))} nats"
     assert mutual_information >= 0, "Mutual information must be non-negative"
